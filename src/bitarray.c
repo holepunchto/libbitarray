@@ -9,13 +9,17 @@
 #include "../include/bitarray.h"
 #include "intrusive/set.h"
 
-#define bitarray__segment_offset(segment) \
-  ((segment)->index * BITARRAY_BYTES_PER_SEGMENT)
+static inline size_t
+bitarray__segment_offset (bitarray_segment_t *segment) {
+  return segment->node.index * BITARRAY_BYTES_PER_SEGMENT;
+}
 
-#define bitarray__page_offset(page) \
-  ((page)->index * BITARRAY_BYTES_PER_PAGE - bitarray_segment_offset((page)->segment))
+static inline size_t
+bitarray__page_offset (bitarray_page_t *page) {
+  return page->node.index * BITARRAY_BYTES_PER_PAGE - bitarray__segment_offset(page->segment);
+}
 
-static bitarray_node_t *
+static inline bitarray_node_t *
 bitarray__node (const intrusive_set_node_t *node) {
   return node == NULL ? NULL : intrusive_entry(node, bitarray_node_t, set);
 }
@@ -32,8 +36,6 @@ bitarray__on_equal (const void *key, const intrusive_set_node_t *node, void *dat
 
 int
 bitarray_init (bitarray_t *bitarray) {
-  memset(bitarray, 0, sizeof(bitarray_t));
-
   intrusive_set_init(&bitarray->segments, bitarray->segment_buckets, 16, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
 
   intrusive_set_init(&bitarray->pages, bitarray->page_buckets, 128, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
