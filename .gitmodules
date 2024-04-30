@@ -1,0 +1,4 @@
+[submodule "vendor/libintrusive"]
+	path = vendor/libintrusive
+	url = ../../holepunchto/libintrusive.git
+	shallow = true
