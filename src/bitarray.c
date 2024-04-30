@@ -34,23 +34,9 @@ int
 bitarray_init (bitarray_t *bitarray) {
   memset(bitarray, 0, sizeof(bitarray_t));
 
-  intrusive_set_init(
-    &bitarray->segments,
-    bitarray->segment_buckets,
-    16,
-    (void *) bitarray,
-    bitarray__on_hash,
-    bitarray__on_equal
-  );
+  intrusive_set_init(&bitarray->segments, bitarray->segment_buckets, 16, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
 
-  intrusive_set_init(
-    &bitarray->pages,
-    bitarray->page_buckets,
-    128,
-    (void *) bitarray,
-    bitarray__on_hash,
-    bitarray__on_equal
-  );
+  intrusive_set_init(&bitarray->pages, bitarray->page_buckets, 128, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
 
   return 0;
 }
