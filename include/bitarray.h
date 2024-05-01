@@ -12,12 +12,12 @@ extern "C" {
 #include <stdint.h>
 
 #define BITARRAY_BITS_PER_PAGE  32768
-#define BITARRAY_BYTES_PER_PAGE BITARRAY_BITS_PER_PAGE / 8
+#define BITARRAY_BYTES_PER_PAGE (BITARRAY_BITS_PER_PAGE / 8)
 
 #define BITARRAY_BITS_PER_SEGMENT          2097152
-#define BITARRAY_BYTES_PER_SEGMENT         BITARRAY_BITS_PER_SEGMENT / 8
+#define BITARRAY_BYTES_PER_SEGMENT         (BITARRAY_BITS_PER_SEGMENT / 8)
 #define BITARRAY_INITIAL_BYTES_PER_SEGMENT 4096
-#define BITARRAY_PAGES_PER_SEGMENT         BITARRAY_BITS_PER_SEGMENT / BITARRAY_BITS_PER_PAGE
+#define BITARRAY_PAGES_PER_SEGMENT         (BITARRAY_BITS_PER_SEGMENT / BITARRAY_BITS_PER_PAGE)
 
 #define BITARRAY_SEGMENT_GROWTH_FACTOR 4
 
@@ -32,6 +32,8 @@ struct bitarray_s {
 
   intrusive_set_t pages;
   intrusive_set_node_t *page_buckets[128];
+
+  size_t last_segment;
 };
 
 struct bitarray_node_s {
@@ -52,6 +54,8 @@ struct bitarray_segment_s {
   bitarray_node_t node;
 
   quickbit_index_t index;
+
+  bitarray_page_t *pages[BITARRAY_PAGES_PER_SEGMENT];
 };
 
 int
@@ -68,6 +72,12 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value);
 
 void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end);
+
+int64_t
+bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos);
+
+int64_t
+bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos);
 
 #ifdef __cplusplus
 }
