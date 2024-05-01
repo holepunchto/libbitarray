@@ -6,6 +6,10 @@ if(NOT TARGET intrusive)
   add_subdirectory(vendor/libintrusive EXCLUDE_FROM_ALL)
 endif()
 
+if(NOT TARGET quickbit)
+  add_subdirectory(vendor/libquickbit EXCLUDE_FROM_ALL)
+endif()
+
 add_library(bitarray OBJECT)
 
 set_target_properties(
@@ -33,6 +37,7 @@ target_link_libraries(
   bitarray
   PUBLIC
     intrusive
+    quickbit
 )
 
 add_library(bitarray_shared SHARED)
@@ -49,6 +54,7 @@ target_link_libraries(
   PUBLIC
     bitarray
     intrusive_shared
+    quickbit_shared
 )
 
 add_library(bitarray_static STATIC)
@@ -65,6 +71,7 @@ target_link_libraries(
   PUBLIC
     bitarray
     intrusive_static
+    quickbit_static
 )
 
 install(TARGETS bitarray_shared bitarray_static)

@@ -1,4 +1,5 @@
 #include <intrusive.h>
+#include <quickbit.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -58,27 +59,38 @@ static inline void
 bitarray__bit_location (int64_t bit, size_t *offset, size_t *page, size_t *segment) {
   *offset = bit & (BITARRAY_BITS_PER_PAGE - 1);
   *page = (bit - *offset) / BITARRAY_BITS_PER_PAGE;
-  *segment = *page / BITARRAY_PAGES_PER_SEGMENT;
+  if (segment) *segment = *page / BITARRAY_PAGES_PER_SEGMENT;
 }
 
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit) {
-  return false;
+  size_t i, j;
+  bitarray__bit_location(bit, &i, &j, NULL);
+
+  bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) j));
+
+  if (page == NULL) return false;
+
+  return quickbit_get(page->bitfield, BITARRAY_BITS_PER_PAGE, i);
 }
 
-void
+bool
 bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
   size_t i, j, k;
   bitarray__bit_location(bit, &i, &j, &k);
 
   bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) j));
 
-  if (page == NULL && value) {
+  if (page == NULL) {
+    if (value == false) return false;
+
     bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) k));
 
     if (segment == NULL) {
       segment = malloc(sizeof(bitarray_segment_t));
       segment->node.index = k;
+
+      quickbit_index_init_sparse(segment->index, NULL, 0);
 
       intrusive_set_add(&bitarray->segments, (void *) k, &segment->node.set);
     }
@@ -87,8 +99,24 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
     page->node.index = j;
     page->segment = segment;
 
+    memset(page->bitfield, 0, BITARRAY_BYTES_PER_PAGE);
+
     intrusive_set_add(&bitarray->pages, (void *) j, &page->node.set);
   }
+
+  if (quickbit_set(page->bitfield, BITARRAY_BITS_PER_PAGE, i, value)) {
+    quickbit_chunk_t chunk = {
+      .field = page->bitfield,
+      .len = BITARRAY_BYTES_PER_PAGE,
+      .offset = bitarray__page_offset(page)
+    };
+
+    quickbit_index_update_sparse(page->segment->index, &chunk, 1, bitarray__page_offset(page) * 8 + bit);
+
+    return true;
+  }
+
+  return false;
 }
 
 void

@@ -11,7 +11,11 @@ main () {
   e = bitarray_init(&b);
   assert(e == 0);
 
-  bitarray_set(&b, 126700, true);
+  bool changed = bitarray_set(&b, 126700, true);
+  assert(changed);
+
+  bool value = bitarray_get(&b, 126700);
+  assert(value == true);
 
   bitarray_destroy(&b);
 }

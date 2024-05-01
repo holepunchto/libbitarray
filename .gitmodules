@@ -2,3 +2,7 @@
 	path = vendor/libintrusive
 	url = ../../holepunchto/libintrusive.git
 	shallow = true
+[submodule "vendor/libquickbit"]
+	path = vendor/libquickbit
+	url = ../../holepunchto/libquickbit.git
+	shallow = true

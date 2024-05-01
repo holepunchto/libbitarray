@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 #include <intrusive.h>
+#include <quickbit.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -43,10 +44,14 @@ struct bitarray_page_s {
   bitarray_node_t node;
 
   bitarray_segment_t *segment;
+
+  uint8_t bitfield[BITARRAY_BYTES_PER_PAGE];
 };
 
 struct bitarray_segment_s {
   bitarray_node_t node;
+
+  quickbit_index_t index;
 };
 
 int
@@ -58,7 +63,7 @@ bitarray_destroy (bitarray_t *bitarray);
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit);
 
-void
+bool
 bitarray_set (bitarray_t *bitarray, int64_t bit, bool value);
 
 void
