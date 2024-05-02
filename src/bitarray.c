@@ -196,7 +196,55 @@ bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
   return value ? -1 : n * BITARRAY_BITS_PER_SEGMENT;
 }
 
+static inline int64_t
+bitarray_find_last__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool value, int64_t pos) {
+  return quickbit_find_last(page->bitfield, BITARRAY_BYTES_PER_PAGE, value, pos);
+}
+
+static inline int64_t
+bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t pos) {
+  pos = quickbit_skip_last(segment->index, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
+
+  size_t i, j;
+  bitarray__bit_offset_in_page(pos, &i, &j, NULL);
+
+  if (j >= BITARRAY_PAGES_PER_SEGMENT) return -1;
+
+  while (j >= 0) {
+    bitarray_page_t *page = segment->pages[j];
+
+    int64_t offset = -1;
+
+    if (page) offset = bitarray_find_last__in_page(bitarray, page, value, i);
+    else if (!value) offset = i;
+
+    if (offset != -1) return j * BITARRAY_BITS_PER_PAGE + offset;
+
+    i = BITARRAY_BITS_PER_PAGE - 1;
+    j++;
+  }
+
+  return -1;
+}
+
 int64_t
 bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
+  size_t i, j;
+  bitarray__bit_offset_in_segment(pos, &i, &j);
+
+  while (j >= 0) {
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+
+    int64_t offset = -1;
+
+    if (segment) offset = bitarray_find_last__in_segment(bitarray, segment, value, i);
+    else if (!value) offset = i;
+
+    if (offset != -1) return j * BITARRAY_BITS_PER_SEGMENT + offset;
+
+    i = BITARRAY_BITS_PER_SEGMENT - 1;
+    j--;
+  }
+
   return -1;
 }
