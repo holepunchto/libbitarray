@@ -67,6 +67,9 @@ bitarray_destroy (bitarray_t *bitarray);
 bitarray_page_t *
 bitarray_page (bitarray_t *bitarray, size_t i);
 
+int
+bitarray_insert (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start);
+
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit);
 
