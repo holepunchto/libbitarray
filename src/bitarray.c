@@ -10,6 +10,11 @@
 #include "../include/bitarray.h"
 #include "intrusive/set.h"
 
+static inline int64_t
+bitarray__max (int64_t a, int64_t b) {
+  return a > b ? a : b;
+}
+
 static inline bitarray_node_t *
 bitarray__node (const intrusive_set_node_t *node) {
   return node == NULL ? NULL : intrusive_entry(node, bitarray_node_t, set);
@@ -27,11 +32,12 @@ bitarray__on_equal (const void *key, const intrusive_set_node_t *node, void *dat
 
 int
 bitarray_init (bitarray_t *bitarray) {
+  bitarray->last_segment = (size_t) -1;
+  bitarray->last_page = (size_t) -1;
+
   intrusive_set_init(&bitarray->segments, bitarray->segment_buckets, 16, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
 
   intrusive_set_init(&bitarray->pages, bitarray->page_buckets, 128, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
-
-  bitarray->last_segment = (size_t) -1;
 
   return 0;
 }
@@ -45,6 +51,13 @@ bitarray_destroy (bitarray_t *bitarray) {
   intrusive_set_for_each(cursor, i, &bitarray->pages) {
     free(bitarray__node(cursor));
   }
+}
+
+bitarray_page_t *
+bitarray_page (bitarray_t *bitarray, size_t i) {
+  if (i >= bitarray->last_page) return NULL;
+
+  return (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) i));
 }
 
 static inline void
@@ -87,6 +100,46 @@ bitarray__page_bit_offset (bitarray_page_t *page) {
   return bitarray__page_byte_offset(page) * 8;
 }
 
+bitarray_page_t *
+bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, size_t index) {
+  bitarray_page_t *page = malloc(sizeof(bitarray_page_t));
+
+  page->node.index = index;
+
+  page->segment = segment;
+
+  memset(page->bitfield, 0, sizeof(page->bitfield));
+
+  intrusive_set_add(&bitarray->pages, (void *) index, &page->node.set);
+
+  if (bitarray->last_page == (size_t) -1 || index > bitarray->last_page) {
+    bitarray->last_page = index;
+  }
+
+  segment->pages[index - segment->node.index * BITARRAY_PAGES_PER_SEGMENT] = page;
+
+  return page;
+}
+
+bitarray_segment_t *
+bitarray__create_segment (bitarray_t *bitarray, size_t index) {
+  bitarray_segment_t *segment = malloc(sizeof(bitarray_segment_t));
+
+  segment->node.index = index;
+
+  quickbit_index_init_sparse(segment->index, NULL, 0);
+
+  memset(segment->pages, 0, sizeof(segment->pages));
+
+  intrusive_set_add(&bitarray->segments, (void *) index, &segment->node.set);
+
+  if (bitarray->last_segment == (size_t) -1 || index > bitarray->last_segment) {
+    bitarray->last_segment = index;
+  }
+
+  return segment;
+}
+
 bool
 bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
   size_t i, j, k;
@@ -99,30 +152,9 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
 
     bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) k));
 
-    if (segment == NULL) {
-      segment = malloc(sizeof(bitarray_segment_t));
-      segment->node.index = k;
+    if (segment == NULL) segment = bitarray__create_segment(bitarray, k);
 
-      quickbit_index_init_sparse(segment->index, NULL, 0);
-
-      memset(segment->pages, 0, sizeof(segment->pages));
-
-      intrusive_set_add(&bitarray->segments, (void *) k, &segment->node.set);
-
-      if (bitarray->last_segment == (size_t) -1 || k > bitarray->last_segment) {
-        bitarray->last_segment = k;
-      }
-    }
-
-    page = malloc(sizeof(bitarray_page_t));
-    page->node.index = j;
-    page->segment = segment;
-
-    memset(page->bitfield, 0, sizeof(page->bitfield));
-
-    intrusive_set_add(&bitarray->pages, (void *) j, &page->node.set);
-
-    segment->pages[j - k * BITARRAY_PAGES_PER_SEGMENT] = page;
+    page = bitarray__create_page(bitarray, segment, j);
   }
 
   if (quickbit_set(page->bitfield, BITARRAY_BITS_PER_PAGE, i, value)) {
@@ -193,7 +225,7 @@ bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
     j++;
   }
 
-  return value ? -1 : n * BITARRAY_BITS_PER_SEGMENT;
+  return value ? -1 : bitarray__max(pos, n * BITARRAY_BITS_PER_SEGMENT);
 }
 
 static inline int64_t

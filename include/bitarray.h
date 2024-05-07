@@ -29,11 +29,11 @@ typedef struct bitarray_segment_s bitarray_segment_t;
 struct bitarray_s {
   intrusive_set_t segments;
   intrusive_set_node_t *segment_buckets[16];
+  size_t last_segment;
 
   intrusive_set_t pages;
   intrusive_set_node_t *page_buckets[128];
-
-  size_t last_segment;
+  size_t last_page;
 };
 
 struct bitarray_node_s {
@@ -63,6 +63,9 @@ bitarray_init (bitarray_t *bitarray);
 
 void
 bitarray_destroy (bitarray_t *bitarray);
+
+bitarray_page_t *
+bitarray_page (bitarray_t *bitarray, size_t i);
 
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit);
