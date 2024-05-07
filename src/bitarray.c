@@ -217,6 +217,73 @@ bitarray_insert (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int6
   return 0;
 }
 
+static inline void
+bitarray_clear__in_page (bitarray_t *bitarray, bitarray_page_t *page, const uint8_t *bitfield, size_t len, int64_t start) {
+  quickbit_chunk_t chunk = {
+    .field = (uint8_t *) bitfield,
+    .len = len,
+    .offset = start / 8,
+  };
+
+  quickbit_clear(page->bitfield, BITARRAY_BYTES_PER_PAGE, &chunk);
+}
+
+static inline void
+bitarray_clear__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, const uint8_t *bitfield, size_t len, int64_t start) {
+  int64_t remaining = len * 8;
+
+  size_t i, j;
+  bitarray__bit_offset_in_page(start, &i, &j, NULL);
+
+  while (remaining > 0) {
+    int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_PAGE);
+    int64_t range = end - i;
+
+    bitarray_page_t *page = segment->pages[j];
+
+    if (page == NULL) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j);
+
+    bitarray_clear__in_page(bitarray, page, bitfield, range / 8, i);
+
+    bitfield = &bitfield[range / 8];
+
+    i = 0;
+    j++;
+    remaining -= range;
+  }
+
+  bitarray__reindex_segment(bitarray, segment);
+}
+
+int
+bitarray_clear (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start) {
+  if (start % 8 != 0) return -1;
+
+  int64_t remaining = len * 8;
+
+  size_t i, j;
+  bitarray__bit_offset_in_segment(start, &i, &j);
+
+  while (remaining > 0) {
+    int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
+    int64_t range = end - i;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+
+    if (segment == NULL) segment = bitarray__create_segment(bitarray, j);
+
+    bitarray_clear__in_segment(bitarray, segment, bitfield, range / 8, i);
+
+    bitfield = &bitfield[range / 8];
+
+    i = 0;
+    j++;
+    remaining -= range;
+  }
+
+  return 0;
+}
+
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit) {
   size_t i, j;
