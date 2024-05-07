@@ -206,12 +206,18 @@ bitarray_find_first__in_segment (bitarray_t *bitarray, bitarray_segment_t *segme
 
 int64_t
 bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
+  size_t len = bitarray->last_segment + 1;
+
+  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+
+  if (pos < 0) pos += n;
+  if (pos < 0) pos = 0;
+  if (pos >= n) return value ? -1 : n;
+
   size_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
 
-  size_t n = bitarray->last_segment + 1;
-
-  while (j < n) {
+  while (j < len) {
     bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
 
     int64_t offset = -1;
@@ -225,7 +231,7 @@ bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
     j++;
   }
 
-  return value ? -1 : bitarray__max(pos, n * BITARRAY_BITS_PER_SEGMENT);
+  return value ? -1 : bitarray__max(pos, n);
 }
 
 static inline int64_t
@@ -261,6 +267,14 @@ bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segmen
 
 int64_t
 bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
+  size_t len = bitarray->last_segment + 1;
+
+  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+
+  if (pos < 0) pos += n;
+  if (pos < 0) return -1;
+  if (pos >= n) pos = n - 1;
+
   size_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
 
