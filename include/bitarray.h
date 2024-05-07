@@ -82,6 +82,9 @@ bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos);
 int64_t
 bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos);
 
+int64_t
+bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end);
+
 #ifdef __cplusplus
 }
 #endif

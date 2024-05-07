@@ -40,5 +40,8 @@ main () {
   p = bitarray_find_first(&b, true, 12670001);
   assert(p == -1);
 
+  p = bitarray_count(&b, true, 0, 12670001);
+  assert(p == 2);
+
   bitarray_destroy(&b);
 }

@@ -15,6 +15,11 @@ bitarray__max (int64_t a, int64_t b) {
   return a > b ? a : b;
 }
 
+static inline int64_t
+bitarray__min (int64_t a, int64_t b) {
+  return a < b ? a : b;
+}
+
 static inline bitarray_node_t *
 bitarray__node (const intrusive_set_node_t *node) {
   return node == NULL ? NULL : intrusive_entry(node, bitarray_node_t, set);
@@ -173,7 +178,15 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
 }
 
 void
-bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {}
+bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
+  size_t len = bitarray->last_segment + 1;
+
+  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+
+  if (start < 0) start += n;
+  if (end < 0) end += n;
+  if (start < 0 || start >= end) return;
+}
 
 static inline int64_t
 bitarray_find_first__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool value, int64_t pos) {
@@ -273,7 +286,7 @@ bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
 
   if (pos < 0) pos += n;
   if (pos < 0) return -1;
-  if (pos >= n) pos = n - 1;
+  if (pos >= n) pos = value ? n - 1 : pos;
 
   size_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
@@ -293,4 +306,60 @@ bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
   }
 
   return -1;
+}
+
+int64_t
+bitarray_count__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t start, int64_t end) {
+  int64_t remaining = end - start;
+  int64_t c = 0;
+
+  while (remaining > 0) {
+    int64_t l = bitarray_find_first__in_segment(bitarray, segment, value, start);
+    if (l == -1 || l >= end) return c;
+
+    int64_t h = bitarray_find_first__in_segment(bitarray, segment, !value, l + 1);
+    if (h == -1 || h >= end) return c + end - l;
+
+    c += h - l;
+    remaining -= h - start;
+    start = h;
+  }
+
+  return c;
+}
+
+int64_t
+bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
+  size_t len = bitarray->last_segment + 1;
+
+  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+
+  if (start < 0) start += n;
+  if (end < 0) end += n;
+  if (start < 0 || start >= end) return 0;
+
+  int64_t remaining = end - start;
+
+  if (start >= n) return value ? 0 : remaining;
+
+  size_t i, j;
+  bitarray__bit_offset_in_segment(start, &i, &j);
+
+  int64_t c = 0;
+
+  while (remaining > 0) {
+    int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
+    int64_t range = end - i;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+
+    if (segment) c += bitarray_count__in_segment(bitarray, segment, value, i, end);
+    else if (!value) c += range;
+
+    i = 0;
+    j++;
+    remaining -= range;
+  }
+
+  return c;
 }
