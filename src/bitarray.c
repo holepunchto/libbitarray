@@ -177,6 +177,49 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
   return false;
 }
 
+static inline void
+bitarray_fill__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool value, int64_t start, int64_t end) {
+  int64_t remaining = end - start;
+
+  quickbit_fill(page->bitfield, BITARRAY_BYTES_PER_PAGE, value, start, end);
+
+  quickbit_chunk_t chunk = {
+    .field = page->bitfield,
+    .len = BITARRAY_BYTES_PER_PAGE,
+    .offset = bitarray__page_byte_offset(page)
+  };
+
+  int64_t i = start / 128;
+  int64_t n = i + (1 + ((remaining - 1) / 128));
+
+  while (i <= n) {
+    quickbit_index_update_sparse(page->segment->index, &chunk, 1, bitarray__page_bit_offset(page) + i++ * 128);
+  }
+}
+
+static inline void
+bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t start, int64_t end) {
+  int64_t remaining = end - start;
+
+  size_t i, j;
+  bitarray__bit_offset_in_page(start, &i, &j, NULL);
+
+  while (remaining > 0) {
+    int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_PAGE);
+    int64_t range = end - i;
+
+    bitarray_page_t *page = segment->pages[j];
+
+    if (page == NULL && value) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j);
+
+    if (page) bitarray_fill__in_page(bitarray, page, value, i, end);
+
+    i = 0;
+    j++;
+    remaining -= range;
+  }
+}
+
 void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
   size_t len = bitarray->last_segment + 1;
@@ -186,6 +229,26 @@ bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
   if (start < 0) start += n;
   if (end < 0) end += n;
   if (start < 0 || start >= end) return;
+
+  int64_t remaining = end - start;
+
+  size_t i, j;
+  bitarray__bit_offset_in_segment(start, &i, &j);
+
+  while (remaining > 0) {
+    int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
+    int64_t range = end - i;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+
+    if (segment == NULL && value) segment = bitarray__create_segment(bitarray, j);
+
+    if (segment) bitarray_fill__in_segment(bitarray, segment, value, i, end);
+
+    i = 0;
+    j++;
+    remaining -= range;
+  }
 }
 
 static inline int64_t
