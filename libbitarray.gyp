@@ -17,6 +17,10 @@
         './include',
       ],
     },
+    'export_dependent_settings': [
+      './vendor/libintrusive/libintrusive.gyp:libintrusive',
+      './vendor/libquickbit/libquickbit.gyp:libquickbit',
+    ],
     'configurations': {
       'Debug': {
         'defines': ['DEBUG'],
