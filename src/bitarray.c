@@ -375,7 +375,7 @@ void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
   size_t len = bitarray->last_segment + 1;
 
-  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+  int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
   if (start < 0) start += n;
   if (end < 0) end += n;
@@ -435,7 +435,7 @@ int64_t
 bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
   size_t len = bitarray->last_segment + 1;
 
-  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+  int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
   if (pos < 0) pos += n;
   if (pos < 0) pos = 0;
@@ -496,7 +496,7 @@ int64_t
 bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
   size_t len = bitarray->last_segment + 1;
 
-  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+  int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
   if (pos < 0) pos += n;
   if (pos < 0) return -1;
@@ -546,7 +546,7 @@ int64_t
 bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
   size_t len = bitarray->last_segment + 1;
 
-  size_t n = len * BITARRAY_BITS_PER_SEGMENT;
+  int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
   if (start < 0) start += n;
   if (end < 0) end += n;
