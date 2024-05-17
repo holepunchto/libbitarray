@@ -9,7 +9,7 @@ main () {
   int e;
 
   bitarray_t b;
-  e = bitarray_init(&b);
+  e = bitarray_init(&b, NULL, NULL);
   assert(e == 0);
 
   bool c;

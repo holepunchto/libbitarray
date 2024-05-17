@@ -26,6 +26,9 @@ typedef struct bitarray_node_s bitarray_node_t;
 typedef struct bitarray_page_s bitarray_page_t;
 typedef struct bitarray_segment_s bitarray_segment_t;
 
+typedef void *(*bitarray_alloc_cb)(size_t size, bitarray_t *bitarray);
+typedef void (*bitarray_free_cb)(void *ptr, bitarray_t *bitarray);
+
 struct bitarray_s {
   intrusive_set_t segments;
   intrusive_set_node_t *segment_buckets[16];
@@ -34,6 +37,11 @@ struct bitarray_s {
   intrusive_set_t pages;
   intrusive_set_node_t *page_buckets[128];
   size_t last_page;
+
+  bitarray_alloc_cb alloc;
+  bitarray_free_cb free;
+
+  void *data;
 };
 
 struct bitarray_node_s {
@@ -59,7 +67,7 @@ struct bitarray_segment_s {
 };
 
 int
-bitarray_init (bitarray_t *bitarray);
+bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb free);
 
 void
 bitarray_destroy (bitarray_t *bitarray);

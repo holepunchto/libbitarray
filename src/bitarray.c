@@ -35,8 +35,24 @@ bitarray__on_equal (const void *key, const intrusive_set_node_t *node, void *dat
   return (size_t) key == bitarray__node(node)->index;
 }
 
+static void *
+bitarray__default_alloc (size_t size, bitarray_t *bitarray) {
+  return malloc(size);
+}
+
+static void
+bitarray__default_free (void *ptr, bitarray_t *bitarray) {
+  free(ptr);
+}
+
 int
-bitarray_init (bitarray_t *bitarray) {
+bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb free) {
+  if (alloc == NULL) alloc = bitarray__default_alloc;
+  if (free == NULL) free = bitarray__default_free;
+
+  bitarray->alloc = alloc;
+  bitarray->free = free;
+
   bitarray->last_segment = (size_t) -1;
   bitarray->last_page = (size_t) -1;
 
@@ -50,11 +66,11 @@ bitarray_init (bitarray_t *bitarray) {
 void
 bitarray_destroy (bitarray_t *bitarray) {
   intrusive_set_for_each(cursor, i, &bitarray->segments) {
-    free(bitarray__node(cursor));
+    bitarray->free(bitarray__node(cursor), bitarray);
   }
 
   intrusive_set_for_each(cursor, i, &bitarray->pages) {
-    free(bitarray__node(cursor));
+    bitarray->free(bitarray__node(cursor), bitarray);
   }
 }
 
@@ -95,7 +111,7 @@ bitarray__page_bit_offset (bitarray_page_t *page) {
 
 static inline bitarray_segment_t *
 bitarray__create_segment (bitarray_t *bitarray, size_t index) {
-  bitarray_segment_t *segment = malloc(sizeof(bitarray_segment_t));
+  bitarray_segment_t *segment = bitarray->alloc(sizeof(bitarray_segment_t), bitarray);
 
   segment->node.index = index;
 
@@ -114,7 +130,7 @@ bitarray__create_segment (bitarray_t *bitarray, size_t index) {
 
 static inline bitarray_page_t *
 bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, size_t index) {
-  bitarray_page_t *page = malloc(sizeof(bitarray_page_t));
+  bitarray_page_t *page = bitarray->alloc(sizeof(bitarray_page_t), bitarray);
 
   page->node.index = index;
 
