@@ -53,8 +53,8 @@ bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb f
   bitarray->alloc = alloc;
   bitarray->free = free;
 
-  bitarray->last_segment = (size_t) -1;
-  bitarray->last_page = (size_t) -1;
+  bitarray->last_segment = (uint32_t) -1;
+  bitarray->last_page = (uint32_t) -1;
 
   intrusive_set_init(&bitarray->segments, bitarray->segment_buckets, 16, (void *) bitarray, bitarray__on_hash, bitarray__on_equal);
 
@@ -75,20 +75,22 @@ bitarray_destroy (bitarray_t *bitarray) {
 }
 
 bitarray_page_t *
-bitarray_page (bitarray_t *bitarray, size_t i) {
+bitarray_page (bitarray_t *bitarray, uint32_t i) {
   if (i > bitarray->last_page) return NULL;
 
-  return (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) i));
+  uintptr_t key = i;
+
+  return (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 }
 
 static inline void
-bitarray__bit_offset_in_segment (int64_t bit, size_t *offset, size_t *segment) {
+bitarray__bit_offset_in_segment (int64_t bit, uint32_t *offset, uint32_t *segment) {
   *offset = bit & (BITARRAY_BITS_PER_SEGMENT - 1);
   *segment = (bit - *offset) / BITARRAY_BITS_PER_SEGMENT;
 }
 
 static inline void
-bitarray__bit_offset_in_page (int64_t bit, size_t *offset, size_t *page, size_t *segment) {
+bitarray__bit_offset_in_page (int64_t bit, uint32_t *offset, uint32_t *page, uint32_t *segment) {
   *offset = bit & (BITARRAY_BITS_PER_PAGE - 1);
   *page = (bit - *offset) / BITARRAY_BITS_PER_PAGE;
   if (segment) *segment = *page / BITARRAY_PAGES_PER_SEGMENT;
@@ -110,7 +112,7 @@ bitarray__page_bit_offset (bitarray_page_t *page) {
 }
 
 static inline bitarray_segment_t *
-bitarray__create_segment (bitarray_t *bitarray, size_t index) {
+bitarray__create_segment (bitarray_t *bitarray, uint32_t index) {
   bitarray_segment_t *segment = bitarray->alloc(sizeof(bitarray_segment_t), bitarray);
 
   segment->node.index = index;
@@ -119,9 +121,11 @@ bitarray__create_segment (bitarray_t *bitarray, size_t index) {
 
   memset(segment->pages, 0, sizeof(segment->pages));
 
-  intrusive_set_add(&bitarray->segments, (void *) index, &segment->node.set);
+  uintptr_t key = index;
 
-  if (bitarray->last_segment == (size_t) -1 || index > bitarray->last_segment) {
+  intrusive_set_add(&bitarray->segments, (void *) key, &segment->node.set);
+
+  if (bitarray->last_segment == (uint32_t) -1 || index > bitarray->last_segment) {
     bitarray->last_segment = index;
   }
 
@@ -129,7 +133,7 @@ bitarray__create_segment (bitarray_t *bitarray, size_t index) {
 }
 
 static inline bitarray_page_t *
-bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, size_t index) {
+bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, uint32_t index) {
   bitarray_page_t *page = bitarray->alloc(sizeof(bitarray_page_t), bitarray);
 
   page->node.index = index;
@@ -138,9 +142,11 @@ bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, size_t
 
   memset(page->bitfield, 0, sizeof(page->bitfield));
 
-  intrusive_set_add(&bitarray->pages, (void *) index, &page->node.set);
+  uintptr_t key = index;
 
-  if (bitarray->last_page == (size_t) -1 || index > bitarray->last_page) {
+  intrusive_set_add(&bitarray->pages, (void *) key, &page->node.set);
+
+  if (bitarray->last_page == (uint32_t) -1 || index > bitarray->last_page) {
     bitarray->last_page = index;
   }
 
@@ -181,7 +187,7 @@ static inline void
 bitarray_insert__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, const uint8_t *bitfield, size_t len, int64_t start) {
   int64_t remaining = len * 8;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_page(start, &i, &j, NULL);
 
   while (remaining > 0) {
@@ -210,14 +216,16 @@ bitarray_insert (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int6
 
   int64_t remaining = len * 8;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_segment(start, &i, &j);
 
   while (remaining > 0) {
     int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
     int64_t range = end - i;
 
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+    uintptr_t key = j;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     if (segment == NULL) segment = bitarray__create_segment(bitarray, j);
 
@@ -248,7 +256,7 @@ static inline void
 bitarray_clear__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, const uint8_t *bitfield, size_t len, int64_t start) {
   int64_t remaining = len * 8;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_page(start, &i, &j, NULL);
 
   while (remaining > 0) {
@@ -277,14 +285,16 @@ bitarray_clear (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64
 
   int64_t remaining = len * 8;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_segment(start, &i, &j);
 
   while (remaining > 0) {
     int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
     int64_t range = end - i;
 
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+    uintptr_t key = j;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     if (segment == NULL) segment = bitarray__create_segment(bitarray, j);
 
@@ -302,10 +312,12 @@ bitarray_clear (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64
 
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit) {
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_page(bit, &i, &j, NULL);
 
-  bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) j));
+  uintptr_t key = j;
+
+  bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 
   if (page == NULL) return false;
 
@@ -314,15 +326,19 @@ bitarray_get (bitarray_t *bitarray, int64_t bit) {
 
 bool
 bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
-  size_t i, j, k;
+  uint32_t i, j, k;
   bitarray__bit_offset_in_page(bit, &i, &j, &k);
 
-  bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) j));
+  uintptr_t key = j;
+
+  bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 
   if (page == NULL) {
     if (value == false) return false;
 
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) k));
+    uintptr_t key = k;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     if (segment == NULL) segment = bitarray__create_segment(bitarray, k);
 
@@ -368,7 +384,7 @@ static inline void
 bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t start, int64_t end) {
   int64_t remaining = end - start;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_page(start, &i, &j, NULL);
 
   while (remaining > 0) {
@@ -389,7 +405,7 @@ bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bo
 
 void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
-  size_t len = bitarray->last_segment + 1;
+  uint64_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -399,14 +415,16 @@ bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
 
   int64_t remaining = end - start;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_segment(start, &i, &j);
 
   while (remaining > 0) {
     int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
     int64_t range = end - i;
 
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+    uintptr_t key = j;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     if (segment == NULL && value) segment = bitarray__create_segment(bitarray, j);
 
@@ -427,7 +445,7 @@ static inline int64_t
 bitarray_find_first__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t pos) {
   pos = quickbit_skip_first(segment->index, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_page(pos, &i, &j, NULL);
 
   while (j < BITARRAY_PAGES_PER_SEGMENT) {
@@ -449,7 +467,7 @@ bitarray_find_first__in_segment (bitarray_t *bitarray, bitarray_segment_t *segme
 
 int64_t
 bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
-  size_t len = bitarray->last_segment + 1;
+  uint64_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -457,11 +475,13 @@ bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
   if (pos < 0) pos = 0;
   if (pos >= n) return value ? -1 : pos;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
 
   while (j < len) {
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+    uintptr_t key = j;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     int64_t offset = -1;
 
@@ -486,12 +506,12 @@ static inline int64_t
 bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t pos) {
   pos = quickbit_skip_last(segment->index, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_page(pos, &i, &j, NULL);
 
   if (j >= BITARRAY_PAGES_PER_SEGMENT) return -1;
 
-  while (j != (size_t) -1) {
+  while (j != (uint32_t) -1) {
     bitarray_page_t *page = segment->pages[j];
 
     int64_t offset = -1;
@@ -510,7 +530,7 @@ bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segmen
 
 int64_t
 bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
-  size_t len = bitarray->last_segment + 1;
+  uint64_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -518,11 +538,13 @@ bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
   if (pos >= n) pos = value ? n - 1 : pos;
   if (pos < 0) return -1;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
 
-  while (j <= (size_t) -1) {
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+  while (j != (uint32_t) -1) {
+    uintptr_t key = j;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     int64_t offset = -1;
 
@@ -560,7 +582,7 @@ bitarray_count__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, b
 
 int64_t
 bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
-  size_t len = bitarray->last_segment + 1;
+  uint64_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -572,7 +594,7 @@ bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
 
   if (start >= n) return value ? 0 : remaining;
 
-  size_t i, j;
+  uint32_t i, j;
   bitarray__bit_offset_in_segment(start, &i, &j);
 
   int64_t c = 0;
@@ -581,7 +603,9 @@ bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
     int64_t end = bitarray__min(i + remaining, BITARRAY_BITS_PER_SEGMENT);
     int64_t range = end - i;
 
-    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
+    uintptr_t key = j;
+
+    bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
 
     if (segment) c += bitarray_count__in_segment(bitarray, segment, value, i, end);
     else if (!value) c += range;
