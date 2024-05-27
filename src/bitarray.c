@@ -405,7 +405,7 @@ bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bo
 
 void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
-  uint64_t len = bitarray->last_segment + 1;
+  uint32_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -467,7 +467,7 @@ bitarray_find_first__in_segment (bitarray_t *bitarray, bitarray_segment_t *segme
 
 int64_t
 bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
-  uint64_t len = bitarray->last_segment + 1;
+  uint32_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -530,7 +530,7 @@ bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segmen
 
 int64_t
 bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
-  uint64_t len = bitarray->last_segment + 1;
+  uint32_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
@@ -582,7 +582,7 @@ bitarray_count__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, b
 
 int64_t
 bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end) {
-  uint64_t len = bitarray->last_segment + 1;
+  uint32_t len = bitarray->last_segment + 1;
 
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
