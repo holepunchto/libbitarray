@@ -455,7 +455,7 @@ bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos) {
 
   if (pos < 0) pos += n;
   if (pos < 0) pos = 0;
-  if (pos >= n) return value ? -1 : n;
+  if (pos >= n) return value ? -1 : pos;
 
   size_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
@@ -491,7 +491,7 @@ bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segmen
 
   if (j >= BITARRAY_PAGES_PER_SEGMENT) return -1;
 
-  while (j >= 0) {
+  while (j != (size_t) -1) {
     bitarray_page_t *page = segment->pages[j];
 
     int64_t offset = -1;
@@ -502,7 +502,7 @@ bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segmen
     if (offset != -1) return j * BITARRAY_BITS_PER_PAGE + offset;
 
     i = BITARRAY_BITS_PER_PAGE - 1;
-    j++;
+    j--;
   }
 
   return -1;
@@ -515,13 +515,13 @@ bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos) {
   int64_t n = len * BITARRAY_BITS_PER_SEGMENT;
 
   if (pos < 0) pos += n;
-  if (pos < 0) return -1;
   if (pos >= n) pos = value ? n - 1 : pos;
+  if (pos < 0) return -1;
 
   size_t i, j;
   bitarray__bit_offset_in_segment(pos, &i, &j);
 
-  while (j >= 0) {
+  while (j <= (size_t) -1) {
     bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) j));
 
     int64_t offset = -1;
