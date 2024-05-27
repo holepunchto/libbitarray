@@ -76,7 +76,7 @@ bitarray_destroy (bitarray_t *bitarray) {
 
 bitarray_page_t *
 bitarray_page (bitarray_t *bitarray, size_t i) {
-  if (i >= bitarray->last_page) return NULL;
+  if (i > bitarray->last_page) return NULL;
 
   return (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) i));
 }
