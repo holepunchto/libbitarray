@@ -36,19 +36,19 @@ bitarray__on_equal (const void *key, const intrusive_set_node_t *node, void *dat
 }
 
 static void *
-bitarray__default_alloc (size_t size, bitarray_t *bitarray) {
+bitarray__on_alloc (size_t size, bitarray_t *bitarray) {
   return malloc(size);
 }
 
 static void
-bitarray__default_free (void *ptr, bitarray_t *bitarray) {
+bitarray__on_free (void *ptr, bitarray_t *bitarray) {
   free(ptr);
 }
 
 int
 bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb free) {
-  if (alloc == NULL) alloc = bitarray__default_alloc;
-  if (free == NULL) free = bitarray__default_free;
+  if (alloc == NULL) alloc = bitarray__on_alloc;
+  if (free == NULL) free = bitarray__on_free;
 
   bitarray->alloc = alloc;
   bitarray->free = free;
