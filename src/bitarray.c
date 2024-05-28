@@ -117,7 +117,7 @@ bitarray__create_segment (bitarray_t *bitarray, uint32_t index) {
 
   segment->node.index = index;
 
-  quickbit_index_init_sparse(segment->index, NULL, 0);
+  quickbit_index_init_sparse(segment->tree, NULL, 0);
 
   memset(segment->pages, 0, sizeof(segment->pages));
 
@@ -142,6 +142,8 @@ bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, uint32
 
   memset(page->bitfield, 0, sizeof(page->bitfield));
 
+  segment->pages[index - segment->node.index * BITARRAY_PAGES_PER_SEGMENT] = page;
+
   uintptr_t key = index;
 
   intrusive_set_add(&bitarray->pages, (void *) key, &page->node.set);
@@ -149,8 +151,6 @@ bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, uint32
   if (bitarray->last_page == (uint32_t) -1 || index > bitarray->last_page) {
     bitarray->last_page = index;
   }
-
-  segment->pages[index - segment->node.index * BITARRAY_PAGES_PER_SEGMENT] = page;
 
   return page;
 }
@@ -175,7 +175,7 @@ bitarray__reindex_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
     chunks[len++] = chunk;
   }
 
-  quickbit_index_init_sparse(segment->index, chunks, len);
+  quickbit_index_init_sparse(segment->tree, chunks, len);
 }
 
 static inline void
@@ -334,7 +334,7 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
   bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 
   if (page == NULL) {
-    if (value == false) return false;
+    if (!value) return false;
 
     uintptr_t key = k;
 
@@ -352,7 +352,7 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
       .offset = bitarray__page_byte_offset(page)
     };
 
-    quickbit_index_update_sparse(page->segment->index, &chunk, 1, bitarray__page_bit_offset(page) + i);
+    quickbit_index_update_sparse(page->segment->tree, &chunk, 1, bitarray__page_bit_offset(page) + i);
 
     return true;
   }
@@ -376,7 +376,7 @@ bitarray_fill__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool value,
   int64_t n = i + (1 + ((remaining - 1) / 128));
 
   while (i <= n) {
-    quickbit_index_update_sparse(page->segment->index, &chunk, 1, bitarray__page_bit_offset(page) + i++ * 128);
+    quickbit_index_update_sparse(page->segment->tree, &chunk, 1, bitarray__page_bit_offset(page) + i++ * 128);
   }
 }
 
@@ -443,7 +443,7 @@ bitarray_find_first__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool 
 
 static inline int64_t
 bitarray_find_first__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t pos) {
-  pos = quickbit_skip_first(segment->index, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
+  pos = quickbit_skip_first(segment->tree, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
 
   uint32_t i, j;
   bitarray__bit_offset_in_page(pos, &i, &j, NULL);
@@ -504,7 +504,7 @@ bitarray_find_last__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool v
 
 static inline int64_t
 bitarray_find_last__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool value, int64_t pos) {
-  pos = quickbit_skip_last(segment->index, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
+  pos = quickbit_skip_last(segment->tree, BITARRAY_BYTES_PER_SEGMENT, !value, pos);
 
   uint32_t i, j;
   bitarray__bit_offset_in_page(pos, &i, &j, NULL);

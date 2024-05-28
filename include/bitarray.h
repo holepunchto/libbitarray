@@ -62,7 +62,7 @@ struct bitarray_page_s {
 struct bitarray_segment_s {
   bitarray_node_t node;
 
-  quickbit_index_t index;
+  quickbit_index_t tree;
 
   bitarray_page_t *pages[BITARRAY_PAGES_PER_SEGMENT];
 };
