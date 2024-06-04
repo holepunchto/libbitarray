@@ -23,3 +23,5 @@ foreach(test IN LISTS tests)
     TIMEOUT 30
   )
 endforeach()
+
+add_subdirectory(fuzz)
