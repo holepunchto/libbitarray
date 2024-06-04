@@ -48,6 +48,34 @@ LLVMFuzzerTestOneInput (const uint8_t *data, size_t size) {
     pos += 1;
   }
 
+  pos = len - 1;
+
+  while (pos >= 0) {
+    int64_t start = pos;
+
+    pos = bitarray_find_last(&b, true, start);
+
+    assert(quickbit_find_last((const quickbit_t) data, size, true, start) == pos);
+
+    if (pos == -1) break;
+
+    pos -= 1;
+  }
+
+  pos = len - 1;
+
+  while (pos >= 0) {
+    int64_t start = pos;
+
+    pos = bitarray_find_last(&b, false, start);
+
+    assert(quickbit_find_last((const quickbit_t) data, size, false, start) == pos);
+
+    if (pos == -1) break;
+
+    pos -= 1;
+  }
+
   bitarray_destroy(&b);
 
   return 0;
