@@ -11,24 +11,40 @@ try_compile(
   LINK_OPTIONS -fsanitize=fuzzer
 )
 
-if(supports_fuzzing)
-  add_executable(fuzz entry.c)
+if(NOT supports_fuzzing)
+  return()
+endif()
+
+list(APPEND fuzzers
+  find
+)
+
+foreach(fuzzer IN LISTS fuzzers)
+  set(target fuzz_${fuzzer})
+
+  add_executable(${target} ${fuzzer}.c)
+
+  set_target_properties(
+    ${target}
+    PROPERTIES
+    OUTPUT_NAME ${fuzzer}
+  )
 
   target_link_libraries(
-    fuzz
+    ${target}
     PRIVATE
       bitarray_static
   )
 
   target_compile_options(
-    fuzz
+    ${target}
     PRIVATE
       -fsanitize=fuzzer
   )
 
   target_link_options(
-    fuzz
+    ${target}
     PRIVATE
       -fsanitize=fuzzer
   )
-endif()
+endforeach()
