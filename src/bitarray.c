@@ -362,22 +362,7 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
 
 static inline void
 bitarray_fill__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool value, int64_t start, int64_t end) {
-  int64_t remaining = end - start;
-
   quickbit_fill(page->bitfield, BITARRAY_BYTES_PER_PAGE, value, start, end);
-
-  quickbit_chunk_t chunk = {
-    .field = page->bitfield,
-    .len = BITARRAY_BYTES_PER_PAGE,
-    .offset = bitarray__page_byte_offset(page)
-  };
-
-  int64_t i = start / 128;
-  int64_t n = i + (1 + ((remaining - 1) / 128));
-
-  while (i <= n) {
-    quickbit_index_update_sparse(page->segment->tree, &chunk, 1, bitarray__page_bit_offset(page) + i++ * 128);
-  }
 }
 
 static inline void
@@ -401,6 +386,26 @@ bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bo
     j++;
     remaining -= range;
   }
+
+  quickbit_chunk_t chunks[BITARRAY_PAGES_PER_SEGMENT];
+
+  size_t len = 0;
+
+  for (size_t i = 0; i < BITARRAY_PAGES_PER_SEGMENT; i++) {
+    bitarray_page_t *page = segment->pages[i];
+
+    if (page == NULL) continue;
+
+    quickbit_chunk_t chunk = {
+      .field = page->bitfield,
+      .len = BITARRAY_BYTES_PER_PAGE,
+      .offset = bitarray__page_byte_offset(page)
+    };
+
+    chunks[len++] = chunk;
+  }
+
+  quickbit_index_fill_sparse(segment->tree, chunks, len, value, start, end);
 }
 
 void
