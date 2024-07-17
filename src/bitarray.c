@@ -360,6 +360,17 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
   return false;
 }
 
+bool
+bitarray_set_batch (bitarray_t *bitarray, int64_t bits[], size_t len, bool value) {
+  bool changed = false;
+
+  for (size_t i = 0, n = len; i < n; i++) {
+    changed = bitarray_set(bitarray, bits[i], value) || changed;
+  }
+
+  return changed;
+}
+
 static inline void
 bitarray_fill__in_page (bitarray_t *bitarray, bitarray_page_t *page, bool value, int64_t start, int64_t end) {
   int64_t remaining = end - start;
