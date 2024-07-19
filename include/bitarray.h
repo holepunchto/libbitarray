@@ -88,6 +88,9 @@ bitarray_get (bitarray_t *bitarray, int64_t bit);
 bool
 bitarray_set (bitarray_t *bitarray, int64_t bit, bool value);
 
+bool
+bitarray_set_batch (bitarray_t *bitarray, int64_t bits[], size_t len, bool value);
+
 void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end);
 
