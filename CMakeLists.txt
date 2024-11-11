@@ -1,14 +1,11 @@
 cmake_minimum_required(VERSION 3.25)
 
+find_package(cmake-fetch REQUIRED PATHS node_modules/cmake-fetch)
+
 project(bitarray C)
 
-if(NOT TARGET intrusive)
-  add_subdirectory(vendor/libintrusive EXCLUDE_FROM_ALL)
-endif()
-
-if(NOT TARGET quickbit)
-  add_subdirectory(vendor/libquickbit EXCLUDE_FROM_ALL)
-endif()
+fetch_package("github:holepunchto/libintrusive")
+fetch_package("github:holepunchto/libquickbit")
 
 add_library(bitarray OBJECT)
 

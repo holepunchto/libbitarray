@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "libbitarray",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/holepunchto/libbitarray.git"
+  },
+  "author": "Holepunch",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/holepunchto/libbitarray/issues"
+  },
+  "homepage": "https://github.com/holepunchto/libbitarray#readme",
+  "devDependencies": {
+    "cmake-fetch": "^1.0.0"
+  }
+}
