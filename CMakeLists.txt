@@ -50,7 +50,6 @@ target_link_libraries(
   bitarray_shared
   PUBLIC
     bitarray
-    intrusive_shared
     quickbit_shared
 )
 
@@ -67,7 +66,6 @@ target_link_libraries(
   bitarray_static
   PUBLIC
     bitarray
-    intrusive_static
     quickbit_static
 )
 
