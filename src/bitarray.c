@@ -144,12 +144,17 @@ bitarray__segment_byte_offset (bitarray_segment_t *segment) {
 
 static inline size_t
 bitarray__page_byte_offset (bitarray_page_t *page) {
-  return page->node.index * BITARRAY_BYTES_PER_PAGE - bitarray__segment_byte_offset(page->segment);
+  return page->node.index * BITARRAY_BYTES_PER_PAGE;
 }
 
 static inline size_t
-bitarray__page_bit_offset (bitarray_page_t *page) {
-  return bitarray__page_byte_offset(page) * 8;
+bitarray__page_byte_offset_in_segment (bitarray_page_t *page) {
+  return bitarray__page_byte_offset(page) - bitarray__segment_byte_offset(page->segment);
+}
+
+static inline size_t
+bitarray__page_bit_offset_in_segment (bitarray_page_t *page) {
+  return bitarray__page_byte_offset_in_segment(page) * 8;
 }
 
 static inline bitarray_segment_t *
@@ -220,7 +225,7 @@ bitarray__reindex_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
     quickbit_chunk_t chunk = {
       .field = page->bitfield,
       .len = BITARRAY_BYTES_PER_PAGE,
-      .offset = bitarray__page_byte_offset(page)
+      .offset = bitarray__page_byte_offset_in_segment(page)
     };
 
     chunks[len++] = chunk;
@@ -423,7 +428,7 @@ bitarray_get (bitarray_t *bitarray, int64_t bit) {
 
   if (page == NULL) return false;
 
-  return quickbit_get(page->bitfield, BITARRAY_BITS_PER_PAGE, i);
+  return quickbit_get(page->bitfield, BITARRAY_BYTES_PER_PAGE, i);
 }
 
 bool
@@ -447,14 +452,14 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
     page = bitarray__create_page(bitarray, segment, j, NULL, NULL);
   }
 
-  if (quickbit_set(page->bitfield, BITARRAY_BITS_PER_PAGE, i, value)) {
+  if (quickbit_set(page->bitfield, BITARRAY_BYTES_PER_PAGE, i, value)) {
     quickbit_chunk_t chunk = {
       .field = page->bitfield,
       .len = BITARRAY_BYTES_PER_PAGE,
-      .offset = bitarray__page_byte_offset(page)
+      .offset = bitarray__page_byte_offset_in_segment(page)
     };
 
-    quickbit_index_update_sparse(page->segment->tree, &chunk, 1, bitarray__page_bit_offset(page) + i);
+    quickbit_index_update_sparse(page->segment->tree, &chunk, 1, bitarray__page_bit_offset_in_segment(page) + i);
 
     return true;
   }
@@ -512,7 +517,7 @@ bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bo
     quickbit_chunk_t chunk = {
       .field = page->bitfield,
       .len = BITARRAY_BYTES_PER_PAGE,
-      .offset = bitarray__page_byte_offset(page)
+      .offset = bitarray__page_byte_offset_in_segment(page)
     };
 
     chunks[len++] = chunk;
