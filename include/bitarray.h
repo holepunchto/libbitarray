@@ -28,6 +28,7 @@ typedef struct bitarray_segment_s bitarray_segment_t;
 
 typedef void *(*bitarray_alloc_cb)(size_t size, bitarray_t *bitarray);
 typedef void (*bitarray_free_cb)(void *ptr, bitarray_t *bitarray);
+typedef void (*bitarray_release_cb)(uint8_t *bitfield, uint32_t index);
 
 struct bitarray_s {
   uint32_t last_segment;
@@ -56,7 +57,9 @@ struct bitarray_page_s {
 
   bitarray_segment_t *segment;
 
-  uint8_t bitfield[BITARRAY_BYTES_PER_PAGE];
+  uint8_t *bitfield;
+
+  bitarray_release_cb release;
 };
 
 struct bitarray_segment_s {
@@ -73,8 +76,11 @@ bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb f
 void
 bitarray_destroy (bitarray_t *bitarray);
 
-bitarray_page_t *
-bitarray_page (bitarray_t *bitarray, uint32_t i);
+uint8_t *
+bitarray_get_page (bitarray_t *bitarray, uint32_t index);
+
+void
+bitarray_set_page (bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bitarray_release_cb cb);
 
 int
 bitarray_insert (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start);
@@ -87,6 +93,9 @@ bitarray_get (bitarray_t *bitarray, int64_t bit);
 
 bool
 bitarray_set (bitarray_t *bitarray, int64_t bit, bool value);
+
+bool
+bitarray_set_batch (bitarray_t *bitarray, int64_t bits[], size_t len, bool value);
 
 void
 bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end);

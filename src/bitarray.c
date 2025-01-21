@@ -1,4 +1,5 @@
 #include <intrusive.h>
+#include <intrusive/set.h>
 #include <quickbit.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -8,7 +9,6 @@
 #include <string.h>
 
 #include "../include/bitarray.h"
-#include "intrusive/set.h"
 
 static inline int64_t
 bitarray__max (int64_t a, int64_t b) {
@@ -63,24 +63,27 @@ bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb f
   return 0;
 }
 
-void
-bitarray_destroy (bitarray_t *bitarray) {
-  intrusive_set_for_each(cursor, i, &bitarray->segments) {
-    bitarray->free(bitarray__node(cursor), bitarray);
-  }
+static inline void
+bitarray__drop_page (bitarray_t *bitarray, bitarray_page_t *page) {
+  if (page->release) page->release(page->bitfield, page->node.index);
 
-  intrusive_set_for_each(cursor, i, &bitarray->pages) {
-    bitarray->free(bitarray__node(cursor), bitarray);
-  }
+  bitarray->free(page, bitarray);
 }
 
-bitarray_page_t *
-bitarray_page (bitarray_t *bitarray, uint32_t i) {
-  if (i > bitarray->last_page) return NULL;
+static inline void
+bitarray__drop_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
+  bitarray->free(segment, bitarray);
+}
 
-  uintptr_t key = i;
+void
+bitarray_destroy (bitarray_t *bitarray) {
+  intrusive_set_for_each(cursor, i, &bitarray->pages) {
+    bitarray__drop_page(bitarray, (bitarray_page_t *) bitarray__node(cursor));
+  }
 
-  return (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
+  intrusive_set_for_each(cursor, i, &bitarray->segments) {
+    bitarray__drop_segment(bitarray, (bitarray_segment_t *) bitarray__node(cursor));
+  }
 }
 
 static inline void
@@ -133,14 +136,24 @@ bitarray__create_segment (bitarray_t *bitarray, uint32_t index) {
 }
 
 static inline bitarray_page_t *
-bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, uint32_t index) {
-  bitarray_page_t *page = bitarray->alloc(sizeof(bitarray_page_t), bitarray);
+bitarray__create_page (bitarray_t *bitarray, bitarray_segment_t *segment, uint32_t index, uint8_t *bitfield, bitarray_release_cb cb) {
+  bitarray_page_t *page;
+
+  if (bitfield) {
+    page = bitarray->alloc(sizeof(bitarray_page_t), bitarray);
+  } else {
+    page = bitarray->alloc(sizeof(bitarray_page_t) + BITARRAY_BYTES_PER_PAGE, bitarray);
+
+    bitfield = (uint8_t *) page + sizeof(bitarray_page_t);
+
+    memset(bitfield, 0, BITARRAY_BYTES_PER_PAGE);
+  }
 
   page->node.index = index;
 
   page->segment = segment;
-
-  memset(page->bitfield, 0, sizeof(page->bitfield));
+  page->bitfield = bitfield;
+  page->release = cb;
 
   segment->pages[index - segment->node.index * BITARRAY_PAGES_PER_SEGMENT] = page;
 
@@ -178,6 +191,47 @@ bitarray__reindex_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
   quickbit_index_init_sparse(segment->tree, chunks, len);
 }
 
+uint8_t *
+bitarray_get_page (bitarray_t *bitarray, uint32_t index) {
+  if (index > bitarray->last_page) return NULL;
+
+  uintptr_t key = index;
+
+  bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
+
+  return page->bitfield;
+}
+
+void
+bitarray_set_page (bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bitarray_release_cb cb) {
+  if (index <= bitarray->last_page) {
+    uintptr_t key = index;
+
+    bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
+
+    if (page->release) {
+      page->release(page->bitfield, page->node.index);
+
+      page->bitfield = bitfield;
+      page->release = cb;
+
+      return bitarray__reindex_segment(bitarray, page->segment);
+    }
+
+    bitarray->free(page, bitarray);
+  }
+
+  uintptr_t key = index / BITARRAY_PAGES_PER_SEGMENT;
+
+  bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
+
+  if (segment == NULL) segment = bitarray__create_segment(bitarray, key);
+
+  bitarray__create_page(bitarray, segment, index, bitfield, cb);
+
+  bitarray__reindex_segment(bitarray, segment);
+}
+
 static inline void
 bitarray_insert__in_page (bitarray_t *bitarray, bitarray_page_t *page, const uint8_t *bitfield, size_t len, int64_t start) {
   memcpy(&page->bitfield[start / 8], bitfield, len);
@@ -196,7 +250,7 @@ bitarray_insert__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, 
 
     bitarray_page_t *page = segment->pages[j];
 
-    if (page == NULL) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j);
+    if (page == NULL) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j, NULL, NULL);
 
     bitarray_insert__in_page(bitarray, page, bitfield, range / 8, i);
 
@@ -265,7 +319,7 @@ bitarray_clear__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, c
 
     bitarray_page_t *page = segment->pages[j];
 
-    if (page == NULL) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j);
+    if (page == NULL) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j, NULL, NULL);
 
     bitarray_clear__in_page(bitarray, page, bitfield, range / 8, i);
 
@@ -342,7 +396,7 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
 
     if (segment == NULL) segment = bitarray__create_segment(bitarray, k);
 
-    page = bitarray__create_page(bitarray, segment, j);
+    page = bitarray__create_page(bitarray, segment, j, NULL, NULL);
   }
 
   if (quickbit_set(page->bitfield, BITARRAY_BITS_PER_PAGE, i, value)) {
@@ -358,6 +412,17 @@ bitarray_set (bitarray_t *bitarray, int64_t bit, bool value) {
   }
 
   return false;
+}
+
+bool
+bitarray_set_batch (bitarray_t *bitarray, int64_t bits[], size_t len, bool value) {
+  bool changed = false;
+
+  for (size_t i = 0, n = len; i < n; i++) {
+    changed = bitarray_set(bitarray, bits[i], value) || changed;
+  }
+
+  return changed;
 }
 
 static inline void
@@ -378,7 +443,7 @@ bitarray_fill__in_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bo
 
     bitarray_page_t *page = segment->pages[j];
 
-    if (page == NULL && value) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j);
+    if (page == NULL && value) page = bitarray__create_page(bitarray, segment, segment->node.index * BITARRAY_PAGES_PER_SEGMENT + j, NULL, NULL);
 
     if (page) bitarray_fill__in_page(bitarray, page, value, i, end);
 
