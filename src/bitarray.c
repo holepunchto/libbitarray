@@ -63,18 +63,26 @@ bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb f
   return 0;
 }
 
+static inline void
+bitarray__drop_page (bitarray_t *bitarray, bitarray_page_t *page) {
+  if (page->release) page->release(page->bitfield, page->node.index);
+
+  bitarray->free(page, bitarray);
+}
+
+static inline void
+bitarray__drop_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
+  bitarray->free(segment, bitarray);
+}
+
 void
 bitarray_destroy (bitarray_t *bitarray) {
   intrusive_set_for_each(cursor, i, &bitarray->segments) {
-    bitarray_page_t *page = (bitarray_page_t *) bitarray__node(cursor);
-
-    if (page->release) page->release(page->bitfield, page->node.index);
-
-    bitarray->free(page, bitarray);
+    bitarray__drop_page(bitarray, (bitarray_page_t *) bitarray__node(cursor));
   }
 
   intrusive_set_for_each(cursor, i, &bitarray->pages) {
-    bitarray->free(bitarray__node(cursor), bitarray);
+    bitarray__drop_segment(bitarray, (bitarray_segment_t *) bitarray__node(cursor));
   }
 }
 
