@@ -71,43 +71,43 @@ struct bitarray_segment_s {
 };
 
 int
-bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb free);
+bitarray_init(bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb free);
 
 void
-bitarray_destroy (bitarray_t *bitarray);
+bitarray_destroy(bitarray_t *bitarray);
 
 uint8_t *
-bitarray_get_page (bitarray_t *bitarray, uint32_t index);
+bitarray_get_page(bitarray_t *bitarray, uint32_t index);
 
 void
-bitarray_set_page (bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bitarray_release_cb cb);
+bitarray_set_page(bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bitarray_release_cb cb);
 
 int
-bitarray_insert (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start);
+bitarray_insert(bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start);
 
 int
-bitarray_clear (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start);
+bitarray_clear(bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64_t start);
 
 bool
-bitarray_get (bitarray_t *bitarray, int64_t bit);
+bitarray_get(bitarray_t *bitarray, int64_t bit);
 
 bool
-bitarray_set (bitarray_t *bitarray, int64_t bit, bool value);
+bitarray_set(bitarray_t *bitarray, int64_t bit, bool value);
 
 bool
-bitarray_set_batch (bitarray_t *bitarray, int64_t bits[], size_t len, bool value);
+bitarray_set_batch(bitarray_t *bitarray, int64_t bits[], size_t len, bool value);
 
 void
-bitarray_fill (bitarray_t *bitarray, bool value, int64_t start, int64_t end);
+bitarray_fill(bitarray_t *bitarray, bool value, int64_t start, int64_t end);
 
 int64_t
-bitarray_find_first (bitarray_t *bitarray, bool value, int64_t pos);
+bitarray_find_first(bitarray_t *bitarray, bool value, int64_t pos);
 
 int64_t
-bitarray_find_last (bitarray_t *bitarray, bool value, int64_t pos);
+bitarray_find_last(bitarray_t *bitarray, bool value, int64_t pos);
 
 int64_t
-bitarray_count (bitarray_t *bitarray, bool value, int64_t start, int64_t end);
+bitarray_count(bitarray_t *bitarray, bool value, int64_t start, int64_t end);
 
 #ifdef __cplusplus
 }

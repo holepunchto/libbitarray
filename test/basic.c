@@ -5,7 +5,7 @@
 #include "../include/bitarray.h"
 
 int
-main () {
+main() {
   int e;
 
   bitarray_t b;
