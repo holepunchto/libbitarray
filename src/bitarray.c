@@ -127,14 +127,14 @@ bitarray_destroy (bitarray_t *bitarray) {
 static inline void
 bitarray__bit_offset_in_segment (int64_t bit, uint32_t *offset, uint32_t *segment) {
   *offset = bit & (BITARRAY_BITS_PER_SEGMENT - 1);
-  *segment = (bit - *offset) / BITARRAY_BITS_PER_SEGMENT;
+  *segment = bit / BITARRAY_BITS_PER_SEGMENT;
 }
 
 static inline void
 bitarray__bit_offset_in_page (int64_t bit, uint32_t *offset, uint32_t *page, uint32_t *segment) {
   *offset = bit & (BITARRAY_BITS_PER_PAGE - 1);
-  *page = (bit - *offset) / BITARRAY_BITS_PER_PAGE;
-  if (segment) *segment = *page / BITARRAY_PAGES_PER_SEGMENT;
+  *page = bit / BITARRAY_BITS_PER_PAGE;
+  if (segment) *segment = bit / BITARRAY_BITS_PER_SEGMENT;
 }
 
 static inline size_t
