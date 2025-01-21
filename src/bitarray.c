@@ -87,7 +87,7 @@ free:
 
 static inline void
 bitarray__drop_page (bitarray_t *bitarray, bitarray_page_t *page, bool destroy) {
-  if (page->release) page->release(page->bitfield, page->node.index);
+  if (page->release) page->release(page->bitfield, page->node.index, bitarray);
 
   if (destroy) goto free;
 
@@ -248,7 +248,7 @@ bitarray_set_page (bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bita
     bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 
     if (page->release) {
-      page->release(page->bitfield, page->node.index);
+      page->release(page->bitfield, page->node.index, bitarray);
 
       page->bitfield = bitfield;
       page->release = cb;

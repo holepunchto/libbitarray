@@ -28,7 +28,7 @@ typedef struct bitarray_segment_s bitarray_segment_t;
 
 typedef void *(*bitarray_alloc_cb)(size_t size, bitarray_t *bitarray);
 typedef void (*bitarray_free_cb)(void *ptr, bitarray_t *bitarray);
-typedef void (*bitarray_release_cb)(uint8_t *bitfield, uint32_t index);
+typedef void (*bitarray_release_cb)(uint8_t *bitfield, uint32_t index, bitarray_t *bitarray);
 
 struct bitarray_s {
   uint32_t last_segment;
