@@ -405,9 +405,19 @@ bitarray_clear (bitarray_t *bitarray, const uint8_t *bitfield, size_t len, int64
 bool
 bitarray_get (bitarray_t *bitarray, int64_t bit) {
   uint32_t i, j;
-  bitarray__bit_offset_in_page(bit, &i, &j, NULL);
+  bitarray__bit_offset_in_segment(bit, &i, &j);
 
   uintptr_t key = j;
+
+  bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
+
+  if (segment == NULL || quickbit_index_is(segment->tree, i, 0)) return false;
+
+  if (quickbit_index_is(segment->tree, i, 1)) return true;
+
+  bitarray__bit_offset_in_page(bit, &i, &j, NULL);
+
+  key = j;
 
   bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 
