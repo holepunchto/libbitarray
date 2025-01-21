@@ -77,11 +77,11 @@ bitarray__drop_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
 
 void
 bitarray_destroy (bitarray_t *bitarray) {
-  intrusive_set_for_each(cursor, i, &bitarray->segments) {
+  intrusive_set_for_each(cursor, i, &bitarray->pages) {
     bitarray__drop_page(bitarray, (bitarray_page_t *) bitarray__node(cursor));
   }
 
-  intrusive_set_for_each(cursor, i, &bitarray->pages) {
+  intrusive_set_for_each(cursor, i, &bitarray->segments) {
     bitarray__drop_segment(bitarray, (bitarray_segment_t *) bitarray__node(cursor));
   }
 }
