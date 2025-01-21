@@ -64,25 +64,63 @@ bitarray_init (bitarray_t *bitarray, bitarray_alloc_cb alloc, bitarray_free_cb f
 }
 
 static inline void
-bitarray__drop_page (bitarray_t *bitarray, bitarray_page_t *page) {
-  if (page->release) page->release(page->bitfield, page->node.index);
+bitarray__drop_segment (bitarray_t *bitarray, bitarray_segment_t *segment, bool destroy) {
+  if (destroy) goto free;
 
-  bitarray->free(page, bitarray);
+  uint32_t index = segment->node.index;
+
+  uintptr_t key = index;
+
+  intrusive_set_delete(&bitarray->segments, (void *) key);
+
+  if (index == bitarray->last_segment) {
+    do {
+      key = --bitarray->last_segment;
+    } while (
+      key < index && !intrusive_set_has(&bitarray->segments, (void *) key)
+    );
+  }
+
+free:
+  bitarray->free(segment, bitarray);
 }
 
 static inline void
-bitarray__drop_segment (bitarray_t *bitarray, bitarray_segment_t *segment) {
-  bitarray->free(segment, bitarray);
+bitarray__drop_page (bitarray_t *bitarray, bitarray_page_t *page, bool destroy) {
+  if (page->release) page->release(page->bitfield, page->node.index);
+
+  if (destroy) goto free;
+
+  uint32_t index = page->node.index;
+
+  bitarray_segment_t *segment = page->segment;
+
+  segment->pages[index - segment->node.index * BITARRAY_PAGES_PER_SEGMENT] = NULL;
+
+  uintptr_t key = index;
+
+  intrusive_set_delete(&bitarray->pages, (void *) key);
+
+  if (index == bitarray->last_page) {
+    do {
+      key = --bitarray->last_page;
+    } while (
+      key < index && !intrusive_set_has(&bitarray->pages, (void *) key)
+    );
+  }
+
+free:
+  bitarray->free(page, bitarray);
 }
 
 void
 bitarray_destroy (bitarray_t *bitarray) {
   intrusive_set_for_each(cursor, i, &bitarray->pages) {
-    bitarray__drop_page(bitarray, (bitarray_page_t *) bitarray__node(cursor));
+    bitarray__drop_page(bitarray, (bitarray_page_t *) bitarray__node(cursor), true);
   }
 
   intrusive_set_for_each(cursor, i, &bitarray->segments) {
-    bitarray__drop_segment(bitarray, (bitarray_segment_t *) bitarray__node(cursor));
+    bitarray__drop_segment(bitarray, (bitarray_segment_t *) bitarray__node(cursor), true);
   }
 }
 
