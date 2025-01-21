@@ -204,12 +204,6 @@ bitarray_get_page (bitarray_t *bitarray, uint32_t index) {
 
 void
 bitarray_set_page (bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bitarray_release_cb cb) {
-  uintptr_t key = index / BITARRAY_PAGES_PER_SEGMENT;
-
-  bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
-
-  if (segment == NULL) segment = bitarray__create_segment(bitarray, key);
-
   if (index <= bitarray->last_page) {
     uintptr_t key = index;
 
@@ -221,11 +215,17 @@ bitarray_set_page (bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bita
       page->bitfield = bitfield;
       page->release = cb;
 
-      return bitarray__reindex_segment(bitarray, segment);
+      return bitarray__reindex_segment(bitarray, page->segment);
     }
 
     bitarray->free(page, bitarray);
   }
+
+  uintptr_t key = index / BITARRAY_PAGES_PER_SEGMENT;
+
+  bitarray_segment_t *segment = (bitarray_segment_t *) bitarray__node(intrusive_set_get(&bitarray->segments, (void *) key));
+
+  if (segment == NULL) segment = bitarray__create_segment(bitarray, key);
 
   bitarray__create_page(bitarray, segment, index, bitfield, cb);
 
