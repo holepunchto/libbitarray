@@ -252,16 +252,18 @@ bitarray_set_page(bitarray_t *bitarray, uint32_t index, uint8_t *bitfield, bitar
 
     bitarray_page_t *page = (bitarray_page_t *) bitarray__node(intrusive_set_get(&bitarray->pages, (void *) key));
 
-    if (page->release) {
-      page->release(page->bitfield, page->node.index, bitarray);
+    if (page != NULL) {
+      if (page->release) {
+        page->release(page->bitfield, page->node.index, bitarray);
 
-      page->bitfield = bitfield;
-      page->release = cb;
+        page->bitfield = bitfield;
+        page->release = cb;
 
-      return bitarray__reindex_segment(bitarray, page->segment);
+        return bitarray__reindex_segment(bitarray, page->segment);
+      }
+
+      bitarray->free(page, bitarray);
     }
-
-    bitarray->free(page, bitarray);
   }
 
   uintptr_t key = index / BITARRAY_PAGES_PER_SEGMENT;
